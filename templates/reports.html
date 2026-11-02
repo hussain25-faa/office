@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+{% block title %}Enterprise Intelligence & A-Z Reports - Business ERP{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Enterprise Intelligence</p>
+    <h1>Comprehensive A to Z Reports</h1>
+    <p>Complete cross-functional analytics with dynamic multi-criteria filters, interactive graphs, and data export.</p>
+  </div>
+  <div class="d-flex align-items-center gap-2 no-print">
+    <button class="btn btn-outline-secondary d-flex align-items-center gap-1" onclick="window.print()">
+      <span>⎙</span> Print / PDF
+    </button>
+  </div>
+</div>
+
+<!-- A TO Z DYNAMIC FILTER CONSOLE -->
+<div class="panel mb-4 py-3 no-print">
+  <form method="get" class="row g-2 align-items-end" id="reportFilterForm">
+    <div class="col-md-2">
+      <label>Workspace</label>
+      <select name="division_id" class="form-select form-select-sm">
+        <option value="">All Workspaces</option>
+        {% for d in divisions %}
+          <option value="{{ d.id }}" {% if div_filter == d.id %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label>From Date</label>
+      <input type="date" name="start_date" class="form-control form-control-sm" value="{{ start_date }}">
+    </div>
+
+    <div class="col-md-2">
+      <label>To Date</label>
+      <input type="date" name="end_date" class="form-control form-control-sm" value="{{ end_date }}">
+    </div>
+
+    <div class="col-md-2">
+      <label>Employee</label>
+      <select name="employee_id" class="form-select form-select-sm">
+        <option value="">All Staff</option>
+        {% for e in all_employees %}
+          <option value="{{ e.id }}" {% if emp_filter == e.id %}selected{% endif %}>{{ e.full_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label>Project</label>
+      <select name="project_id" class="form-select form-select-sm">
+        <option value="">All Projects</option>
+        {% for p in all_projects %}
+          <option value="{{ p.id }}" {% if project_filter == p.id %}selected{% endif %}>{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="col-md-2 d-flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm w-100">Apply Filter</button>
+      <a href="{{ url_for('reports.index') }}" class="btn btn-outline-secondary btn-sm" title="Clear">↺</a>
+    </div>
+  </form>
+</div>
+
+<!-- EXECUTIVE SUMMARY METRICS -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="stat-card metric-card metric-4">
+      <div>Total Invoiced</div>
+      <div class="stat-number">₹{{ "{:,.2f}".format(total_invoiced) }}</div>
+      <span class="metric-orb"></span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card metric-card metric-2">
+      <div>Cash Collected</div>
+      <div class="stat-number">₹{{ "{:,.2f}".format(total_collected) }}</div>
+      <span class="metric-orb"></span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card metric-card metric-3">
+      <div>Total Expenses</div>
+      <div class="stat-number">₹{{ "{:,.2f}".format(total_expenses) }}</div>
+      <span class="metric-orb"></span>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card metric-card metric-5">
+      <div>Net Operating Profit</div>
+      <div class="stat-number">₹{{ "{:,.2f}".format(net_profit) }}</div>
+      <span class="metric-orb"></span>
+    </div>
+  </div>
+</div>
+
+<!-- INTERACTIVE REPORT CHARTS -->
+<div class="row g-4 mb-4 no-print">
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h5 class="mb-1">Expense Breakdown by Category</h5>
+      <small class="text-muted d-block mb-3">Where capital was deployed across active divisions</small>
+      <div style="height: 250px; position: relative;">
+        <canvas id="expenseCategoryChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel h-100">
+      <h5 class="mb-1">Task Completion Performance</h5>
+      <small class="text-muted d-block mb-3">Productivity delivery ratio across the organization</small>
+      <div style="height: 250px; position: relative;">
+        <canvas id="taskDeliveryChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MULTI-SECTION TABBED REPORTS -->
+<div class="panel">
+  <ul class="nav nav-pills mb-3 border-bottom pb-3 no-print" id="reportTabs" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-finances">
+        💳 Financial & Invoicing ({{ invoices|length }})
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-expenses">
+        ◉ Expenses Ledger ({{ expenses|length }})
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-tasks">
+        ✓ Tasks & Productivity ({{ tasks|length }})
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-projects">
+        ▣ Projects & Budgets ({{ projects_report|length }})
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-inventory">
+        ◫ Inventory & Materials ({{ materials_report|length }})
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content">
+    <!-- TAB 1: FINANCIAL & INVOICING -->
+    <div class="tab-pane fade show active" id="tab-finances">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6>Billing, Receivables & Invoices</h6>
+        <button class="btn btn-sm btn-outline-primary no-print" onclick="exportTableToCSV('invoicesReportTable', 'financial_invoices_report.csv')">
+          ⬇ Export Invoices to CSV
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle" id="invoicesReportTable">
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Date</th>
+              <th>Workspace</th>
+              <th>Subtotal</th>
+              <th>GST Amount</th>
+              <th>Total Amount</th>
+              <th>Amount Paid</th>
+              <th>Receivable</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for i in invoices %}
+            <tr>
+              <td><strong>{{ i.invoice_number }}</strong></td>
+              <td>{{ i.invoice_date }}</td>
+              <td>{{ i.division_name }}</td>
+              <td>₹{{ "{:,.2f}".format(i.subtotal) }}</td>
+              <td>₹{{ "{:,.2f}".format(i.gst_amount) }}</td>
+              <td><strong>₹{{ "{:,.2f}".format(i.total_amount) }}</strong></td>
+              <td class="text-success">₹{{ "{:,.2f}".format(i.amount_paid) }}</td>
+              <td class="text-danger">₹{{ "{:,.2f}".format(i.total_amount - i.amount_paid) }}</td>
+              <td>
+                <span class="badge-soft 
+                  {% if i.status == 'Paid' %}badge-soft-success
+                  {% elif i.status == 'Partial' %}badge-soft-warning
+                  {% else %}badge-soft-danger{% endif %}">
+                  {{ i.status }}
+                </span>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center py-4 text-muted">No invoices found for this criteria.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: EXPENSES LEDGER -->
+    <div class="tab-pane fade" id="tab-expenses">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6>Operational Expenses Breakdown</h6>
+        <button class="btn btn-sm btn-outline-primary no-print" onclick="exportTableToCSV('expensesReportTable', 'expenses_report.csv')">
+          ⬇ Export Expenses to CSV
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle" id="expensesReportTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Workspace</th>
+              <th>Category</th>
+              <th>Linked Project</th>
+              <th>Amount</th>
+              <th>Payment Method</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for x in expenses %}
+            <tr>
+              <td>{{ x.expense_date }}</td>
+              <td>{{ x.division_name }}</td>
+              <td><span class="badge-soft badge-soft-primary">{{ x.category }}</span></td>
+              <td>{{ x.project_name or '—' }}</td>
+              <td><strong>₹{{ "{:,.2f}".format(x.amount) }}</strong></td>
+              <td>{{ x.payment_method or 'Cash' }}</td>
+              <td><small class="text-muted">{{ x.description or '—' }}</small></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center py-4 text-muted">No expenses recorded in this period.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: TASKS & PRODUCTIVITY LEADERBOARD -->
+    <div class="tab-pane fade" id="tab-tasks">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h6 class="mb-0">Employee Work Execution & Hours Spent</h6>
+          <small class="text-muted">Total Estimated: {{ total_est_hours }}h | Total Actual Spent: {{ total_act_hours }}h</small>
+        </div>
+        <button class="btn btn-sm btn-outline-primary no-print" onclick="exportTableToCSV('tasksReportTable', 'work_productivity_report.csv')">
+          ⬇ Export Productivity to CSV
+        </button>
+      </div>
+
+      <!-- Employee Leaderboard -->
+      <div class="row g-3 mb-4">
+        {% for ep in employee_productivity[:4] %}
+        <div class="col-md-3">
+          <div class="p-3 bg-light rounded-3 border">
+            <div class="fw-bold">{{ ep.full_name }}</div>
+            <small class="text-muted d-block mb-2">{{ ep.division_name }}</small>
+            <div class="d-flex justify-content-between small mb-1">
+              <span>Completed:</span>
+              <strong>{{ ep.completed_count }}/{{ ep.total_assigned }}</strong>
+            </div>
+            <div class="d-flex justify-content-between small">
+              <span>Hours Logged:</span>
+              <strong>{{ ep.total_act_hours }}h</strong>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle" id="tasksReportTable">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Employee</th>
+              <th>Workspace</th>
+              <th>Priority</th>
+              <th>Estimated Hours</th>
+              <th>Actual Hours</th>
+              <th>Progress</th>
+              <th>Status</th>
+              <th>Employee Work Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in tasks %}
+            <tr>
+              <td><strong>{{ t.title }}</strong></td>
+              <td>{{ t.employee_name or 'Unassigned' }}</td>
+              <td>{{ t.division_name }}</td>
+              <td>{{ t.priority }}</td>
+              <td>{{ t.estimated_hours or 0 }}h</td>
+              <td><strong>{{ t.actual_hours or 0 }}h</strong></td>
+              <td>{{ t.progress_percent or 0 }}%</td>
+              <td>
+                <span class="badge-soft 
+                  {% if t.status == 'Completed' %}badge-soft-success
+                  {% elif t.status == 'In Progress' %}badge-soft-primary
+                  {% else %}badge-soft-warning{% endif %}">
+                  {{ t.status }}
+                </span>
+              </td>
+              <td><small class="text-muted">{{ t.employee_notes or '—' }}</small></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center py-4 text-muted">No task records found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 4: PROJECTS & BUDGETS -->
+    <div class="tab-pane fade" id="tab-projects">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6>Project Portfolio Performance</h6>
+        <button class="btn btn-sm btn-outline-primary no-print" onclick="exportTableToCSV('projectsReportTable', 'projects_report.csv')">
+          ⬇ Export Projects to CSV
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle" id="projectsReportTable">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Project Name</th>
+              <th>Workspace</th>
+              <th>Budget</th>
+              <th>Expenses Incurred</th>
+              <th>Variance (Profit)</th>
+              <th>Tasks (Done/Total)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in projects_report %}
+            <tr>
+              <td><strong>{{ p.project_code }}</strong></td>
+              <td>{{ p.name }}</td>
+              <td>{{ p.division_name }}</td>
+              <td>₹{{ "{:,.2f}".format(p.budget) }}</td>
+              <td class="text-danger">₹{{ "{:,.2f}".format(p.actual_expenses) }}</td>
+              <td class="{{ 'text-success' if (p.budget - p.actual_expenses) >= 0 else 'text-danger' }}">
+                ₹{{ "{:,.2f}".format(p.budget - p.actual_expenses) }}
+              </td>
+              <td>{{ p.completed_task_count }}/{{ p.task_count }}</td>
+              <td>
+                <span class="badge-soft badge-soft-info">{{ p.status }}</span>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center py-4 text-muted">No projects found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 5: INVENTORY VALUATION & REORDER -->
+    <div class="tab-pane fade" id="tab-inventory">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h6 class="mb-0">Materials & Stock Status</h6>
+          {% if low_stock_count > 0 %}
+            <span class="badge-soft badge-soft-danger">{{ low_stock_count }} items below reorder level</span>
+          {% endif %}
+        </div>
+        <button class="btn btn-sm btn-outline-primary no-print" onclick="exportTableToCSV('inventoryReportTable', 'inventory_report.csv')">
+          ⬇ Export Inventory to CSV
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle" id="inventoryReportTable">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Workspace</th>
+              <th>Category</th>
+              <th>Unit</th>
+              <th>Current Stock</th>
+              <th>Reorder Threshold</th>
+              <th>Stock Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in materials_report %}
+            <tr>
+              <td><strong>{{ m.name }}</strong></td>
+              <td>{{ m.division_name }}</td>
+              <td>{{ m.category or '—' }}</td>
+              <td>{{ m.unit }}</td>
+              <td><strong>{{ m.current_stock }}</strong></td>
+              <td>{{ m.reorder_level }}</td>
+              <td>
+                {% if m.is_low_stock %}
+                  <span class="badge-soft badge-soft-danger">Low Stock Alert</span>
+                {% else %}
+                  <span class="badge-soft badge-soft-success">In Stock</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center py-4 text-muted">No inventory materials recorded.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  // Expense Breakdown Chart
+  const expCtx = document.getElementById('expenseCategoryChart');
+  if (expCtx) {
+    const labels = {{ expense_chart_labels|safe }};
+    const data = {{ expense_chart_values|safe }};
+
+    if (labels.length > 0) {
+      new Chart(expCtx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: [
+              '#4f46e5', '#0284c7', '#059669', '#ea580c',
+              '#7c3aed', '#db2777', '#d97706', '#64748b'
+            ],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'right' }
+          }
+        }
+      });
+    } else {
+      expCtx.parentElement.innerHTML = '<p class="text-center text-muted my-auto">No expense data to visualize.</p>';
+    }
+  }
+
+  // Task Delivery Ratio Chart
+  const taskCtx = document.getElementById('taskDeliveryChart');
+  if (taskCtx) {
+    const labels = {{ task_chart_labels|safe }};
+    const data = {{ task_chart_values|safe }};
+
+    new Chart(taskCtx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: ['#10b981', '#4f46e5', '#f59e0b', '#8b5cf6'],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'right' }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

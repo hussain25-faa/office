@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block title %}Inventory & Materials - Business ERP{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Supply Chain & Materials</p>
+    <h1>Materials & Inventory</h1>
+    <p>Track raw materials, stock levels, warehouse inventory, purchase invoices, and site issuances.</p>
+  </div>
+  {% if can_edit %}
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-outline-primary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#issueStockModal">
+      <span>📤</span> Issue Stock
+    </button>
+    <button class="btn btn-primary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#purchaseModal">
+      <span>+</span> Record Purchase
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<!-- INVENTORY TABLE -->
+<div class="panel">
+  <div class="table-responsive">
+    <table class="table align-middle" id="inventoryTable">
+      <thead>
+        <tr>
+          <th>Material Name</th>
+          <th>Workspace</th>
+          <th>Category</th>
+          <th>Unit</th>
+          <th>Current Stock</th>
+          <th>Reorder Level</th>
+          <th>Status</th>
+          <th class="text-end no-export" style="width: 80px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in materials %}
+        {% set is_low = m.current_stock <= m.reorder_level %}
+        <tr>
+          <td>
+            <strong>{{ m.name }}</strong>
+          </td>
+          <td>{{ m.division_name }}</td>
+          <td>{{ m.category or 'General' }}</td>
+          <td><span class="badge-soft badge-soft-secondary">{{ m.unit }}</span></td>
+          <td>
+            <span class="fs-6 fw-bold {{ 'text-danger' if is_low else 'text-dark' }}">
+              {{ m.current_stock }}
+            </span>
+          </td>
+          <td><span class="text-muted">{{ m.reorder_level }}</span></td>
+          <td>
+            {% if is_low %}
+              <span class="badge-soft badge-soft-danger">Reorder Required</span>
+            {% else %}
+              <span class="badge-soft badge-soft-success">In Stock</span>
+            {% endif %}
+          </td>
+          <td class="text-end no-export">
+            <!-- 3-DOT ACTION MENU -->
+            <div class="dropdown">
+              <button class="action-dots-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
+                ⋮
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#viewMatModal{{ m.id }}">
+                    <span>👁</span> View Details
+                  </a>
+                </li>
+                {% if can_edit %}
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editMatModal{{ m.id }}">
+                    <span>✎</span> Edit Material
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="post" action="{{ url_for('inventory.delete_material', material_id=m.id) }}" onsubmit="return confirm('Delete material {{ m.name }}?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="dropdown-item text-danger">
+                      <span>🗑</span> Delete
+                    </button>
+                  </form>
+                </li>
+                {% endif %}
+              </ul>
+            </div>
+          </td>
+        </tr>
+
+        <!-- VIEW MATERIAL MODAL -->
+        <div class="modal fade" id="viewMatModal{{ m.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <span class="badge-soft badge-soft-primary mb-1">{{ m.category or 'Inventory' }}</span>
+                  <h5 class="modal-title">{{ m.name }}</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-6">
+                    <label class="text-muted small">Workspace</label>
+                    <div class="fw-bold">{{ m.division_name }}</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="text-muted small">Unit of Measure</label>
+                    <div class="fw-bold">{{ m.unit }}</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="text-muted small">Current Available Stock</label>
+                    <div class="fs-4 fw-bold {{ 'text-danger' if is_low else 'text-success' }}">{{ m.current_stock }} {{ m.unit }}</div>
+                  </div>
+                  <div class="col-6">
+                    <label class="text-muted small">Reorder Threshold</label>
+                    <div class="fs-5">{{ m.reorder_level }} {{ m.unit }}</div>
+                  </div>
+                  <div class="col-12">
+                    <div class="p-3 bg-light rounded border text-center">
+                      <small class="text-muted d-block">Stock Alert Status</small>
+                      {% if is_low %}
+                        <span class="text-danger fw-bold">Current stock has fallen below the safety reorder threshold.</span>
+                      {% else %}
+                        <span class="text-success fw-bold">Stock levels are healthy.</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if can_edit %}
+        <!-- EDIT MATERIAL MODAL -->
+        <div class="modal fade" id="editMatModal{{ m.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <p class="eyebrow mb-0">Modify Item</p>
+                  <h5 class="modal-title">Edit {{ m.name }}</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <form method="post" action="{{ url_for('inventory.edit_material', material_id=m.id) }}" class="row g-3">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                  <div class="col-12">
+                    <label>Material Name *</label>
+                    <input class="form-control" name="name" value="{{ m.name }}" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label>Workspace *</label>
+                    <select class="form-select" name="division_id" required>
+                      {% for d in divisions %}
+                        <option value="{{ d.id }}" {% if d.id == m.division_id %}selected{% endif %}>{{ d.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-6">
+                    <label>Category</label>
+                    <input class="form-control" name="category" value="{{ m.category or '' }}">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label>Unit (Nos/Kg/SqFt)</label>
+                    <input class="form-control" name="unit" value="{{ m.unit }}" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label>Current Stock</label>
+                    <input class="form-control" type="number" step="0.01" name="current_stock" value="{{ m.current_stock }}" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label>Reorder Level</label>
+                    <input class="form-control" type="number" step="0.01" name="reorder_level" value="{{ m.reorder_level }}">
+                  </div>
+
+                  <div class="col-12 text-end mt-4">
+                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center py-5 text-muted">
+            No materials recorded. Record your first purchase or add items to inventory.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if can_edit %}
+<!-- RECORD PURCHASE MODAL -->
+<div class="modal fade" id="purchaseModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow mb-1">Stock Inward</p>
+          <h5 class="modal-title">Record Material Purchase</h5>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" class="row g-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="col-md-6">
+            <label>Material Name *</label>
+            <input class="form-control" name="name" placeholder="e.g. 18mm Marine Plywood" required>
+          </div>
+          <div class="col-md-6">
+            <label>Workspace *</label>
+            <select class="form-select" name="division_id" required>
+              {% for d in divisions %}
+                <option value="{{ d.id }}" {% if d.id == (session.get('active_division_id') or session.get('division_id')) %}selected{% endif %}>{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label>Category</label>
+            <input class="form-control" name="category" placeholder="Timber / Steel / Cement">
+          </div>
+          <div class="col-md-4">
+            <label>Unit</label>
+            <input class="form-control" name="unit" value="Nos" required>
+          </div>
+          <div class="col-md-4">
+            <label>Reorder Level Alert</label>
+            <input class="form-control" name="reorder_level" type="number" step="0.01" value="10">
+          </div>
+
+          <div class="col-md-4">
+            <label>Quantity Purchased *</label>
+            <input class="form-control" name="quantity" type="number" step="0.01" min="0.01" placeholder="50" required>
+          </div>
+          <div class="col-md-4">
+            <label>Unit Price (₹) *</label>
+            <input class="form-control" name="unit_price" type="number" step="0.01" min="0" placeholder="1200" required>
+          </div>
+          <div class="col-md-4">
+            <label>GST %</label>
+            <input class="form-control" name="gst_percent" type="number" step="0.01" min="0" value="18">
+          </div>
+
+          <div class="col-md-6">
+            <label>Purchase Date *</label>
+            <input class="form-control" type="date" name="purchase_date" required>
+          </div>
+          <div class="col-md-6">
+            <label>Supplier Bill / Invoice No.</label>
+            <input class="form-control" name="invoice_number" placeholder="BILL-2026-089">
+          </div>
+
+          <div class="col-12 text-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary px-4">Record Stock Purchase</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ISSUE STOCK TO PROJECT MODAL -->
+<div class="modal fade" id="issueStockModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow mb-1">Stock Outward</p>
+          <h5 class="modal-title">Issue Material to Site / Project</h5>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" action="{{ url_for('inventory.issue') }}" class="row g-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="col-12">
+            <label>Select Material *</label>
+            <select class="form-select" name="material_id" required>
+              <option value="">Choose Material</option>
+              {% for m in materials %}
+                <option value="{{ m.id }}">{{ m.name }} (Available: {{ m.current_stock }} {{ m.unit }})</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label>Select Project Site (Optional)</label>
+            <select class="form-select" name="project_id">
+              <option value="">No Project (General Internal Use)</option>
+              {% for p in projects %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-12">
+            <label>Quantity to Issue *</label>
+            <input class="form-control" type="number" step="0.01" min="0.01" name="quantity" placeholder="Quantity" required>
+          </div>
+
+          <div class="col-12">
+            <label>Notes / Issue Reference</label>
+            <textarea class="form-control" name="notes" rows="2" placeholder="Issued for site framing..."></textarea>
+          </div>
+
+          <div class="col-12 text-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary px-4">Confirm Stock Issue</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

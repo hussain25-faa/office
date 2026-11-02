@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block title %}Projects Portfolio - Business ERP{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Operations & Site Tracking</p>
+    <h1>Projects</h1>
+    <p>Monitor civil construction, engineering contracts, custom furniture build sites, budgets, and milestones.</p>
+  </div>
+  {% if can_edit %}
+  <button class="btn btn-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+    <span>+</span> Create Project
+  </button>
+  {% endif %}
+</div>
+
+<!-- PROJECTS TABLE -->
+<div class="panel">
+  <div class="table-responsive">
+    <table class="table align-middle" id="projectsTable">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Project Name & Site</th>
+          <th>Workspace</th>
+          <th>Budget</th>
+          <th>Incurred Expenses</th>
+          <th>Tasks</th>
+          <th>Status</th>
+          <th>Target End</th>
+          <th class="text-end no-export" style="width: 80px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><span class="badge-soft badge-soft-secondary font-monospace">{{ r.project_code }}</span></td>
+          <td>
+            <strong>{{ r.name }}</strong>
+            <small class="text-muted text-truncate d-inline-block" style="max-width:220px;">
+              {{ r.site_address or 'No site address' }}
+            </small>
+          </td>
+          <td>{{ r.division_name }}</td>
+          <td><strong>₹{{ "{:,.2f}".format(r.budget) }}</strong></td>
+          <td class="text-danger">₹{{ "{:,.2f}".format(r.total_expenses) }}</td>
+          <td><span class="badge-soft badge-soft-primary">{{ r.total_tasks }} tasks</span></td>
+          <td>
+            <span class="badge-soft 
+              {% if r.status == 'Completed' %}badge-soft-success
+              {% elif r.status == 'Active' %}badge-soft-primary
+              {% elif r.status == 'On Hold' %}badge-soft-warning
+              {% elif r.status == 'Cancelled' %}badge-soft-danger
+              {% else %}badge-soft-info{% endif %}">
+              {{ r.status }}
+            </span>
+          </td>
+          <td><small class="text-muted">{{ r.expected_end_date or '—' }}</small></td>
+          <td class="text-end no-export">
+            <!-- 3-DOT ACTION MENU -->
+            <div class="dropdown">
+              <button class="action-dots-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
+                ⋮
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#viewProjModal{{ r.id }}">
+                    <span>👁</span> View Details
+                  </a>
+                </li>
+                {% if can_edit %}
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editProjModal{{ r.id }}">
+                    <span>✎</span> Edit Project
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="post" action="{{ url_for('projects.delete', project_id=r.id) }}" onsubmit="return confirm('Delete or cancel project {{ r.name }}?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="dropdown-item text-danger">
+                      <span>🗑</span> Delete / Cancel
+                    </button>
+                  </form>
+                </li>
+                {% endif %}
+              </ul>
+            </div>
+          </td>
+        </tr>
+
+        <!-- VIEW PROJECT MODAL -->
+        <div class="modal fade" id="viewProjModal{{ r.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <span class="badge-soft badge-soft-primary mb-1">{{ r.project_code }}</span>
+                  <h5 class="modal-title">{{ r.name }}</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="text-muted small">Workspace</label>
+                    <div class="fw-bold">{{ r.division_name }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Status</label>
+                    <div><span class="badge-soft badge-soft-info">{{ r.status }}</span></div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Total Allocated Budget</label>
+                    <div class="fw-bold fs-5 text-dark">₹{{ "{:,.2f}".format(r.budget) }}</div>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="text-muted small">Start Date</label>
+                    <div>{{ r.start_date or 'Not scheduled' }}</div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="text-muted small">Expected End Date</label>
+                    <div>{{ r.expected_end_date or 'Open-ended' }}</div>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="text-muted small">Site Address</label>
+                    <div class="p-2 bg-light rounded border">{{ r.site_address or 'No site address provided' }}</div>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="text-muted small">Description & Specifications</label>
+                    <div class="p-2 bg-light rounded border">{{ r.description or 'No extra notes.' }}</div>
+                  </div>
+
+                  <div class="col-md-6">
+                    <div class="p-3 bg-light rounded-3 text-center border">
+                      <small class="text-muted d-block">Expenses Incurred</small>
+                      <strong class="fs-5 text-danger">₹{{ "{:,.2f}".format(r.total_expenses) }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="p-3 bg-light rounded-3 text-center border">
+                      <small class="text-muted d-block">Remaining Budget</small>
+                      <strong class="fs-5 {{ 'text-success' if (r.budget - r.total_expenses) >= 0 else 'text-danger' }}">
+                        ₹{{ "{:,.2f}".format(r.budget - r.total_expenses) }}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if can_edit %}
+        <!-- EDIT PROJECT MODAL -->
+        <div class="modal fade" id="editProjModal{{ r.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <p class="eyebrow mb-0">Project Settings</p>
+                  <h5 class="modal-title">Edit {{ r.name }}</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <form method="post" action="{{ url_for('projects.edit', project_id=r.id) }}" class="row g-3">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                  <div class="col-md-3">
+                    <label>Project Code *</label>
+                    <input class="form-control" name="project_code" value="{{ r.project_code }}" required>
+                  </div>
+                  <div class="col-md-5">
+                    <label>Project Name *</label>
+                    <input class="form-control" name="name" value="{{ r.name }}" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label>Workspace *</label>
+                    <select class="form-select" name="division_id" required>
+                      {% for d in divisions %}
+                        <option value="{{ d.id }}" {% if d.id == r.division_id %}selected{% endif %}>{{ d.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label>Budget (₹)</label>
+                    <input class="form-control" name="budget" type="number" step="0.01" value="{{ r.budget }}">
+                  </div>
+                  <div class="col-md-4">
+                    <label>Status</label>
+                    <select class="form-select" name="status">
+                      {% for s in ['Planning', 'Active', 'On Hold', 'Completed', 'Cancelled'] %}
+                        <option {% if r.status == s %}selected{% endif %}>{{ s }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label>Start Date</label>
+                    <input class="form-control" type="date" name="start_date" value="{{ r.start_date or '' }}">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label>Expected End Date</label>
+                    <input class="form-control" type="date" name="expected_end_date" value="{{ r.expected_end_date or '' }}">
+                  </div>
+                  <div class="col-md-8">
+                    <label>Site Address</label>
+                    <input class="form-control" name="site_address" value="{{ r.site_address or '' }}">
+                  </div>
+
+                  <div class="col-12">
+                    <label>Description / Scope</label>
+                    <textarea class="form-control" name="description" rows="2">{{ r.description or '' }}</textarea>
+                  </div>
+
+                  <div class="col-12 text-end mt-4">
+                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center py-5 text-muted">
+            No projects registered yet. Click "+ Create Project" to add your first contract or site.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if can_edit %}
+<!-- NEW PROJECT MODAL -->
+<div class="modal fade" id="newProjectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow mb-1">Portfolio Expansion</p>
+          <h5 class="modal-title">Create New Project</h5>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" class="row g-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="col-md-3">
+            <label>Project Code *</label>
+            <input class="form-control" name="project_code" placeholder="PRJ-101" required>
+          </div>
+          <div class="col-md-5">
+            <label>Project Name *</label>
+            <input class="form-control" name="name" placeholder="Villa 7 Kitchen Interior" required>
+          </div>
+          <div class="col-md-4">
+            <label>Workspace *</label>
+            <select class="form-select" name="division_id" required>
+              {% for d in divisions %}
+                <option value="{{ d.id }}" {% if d.id == (session.get('active_division_id') or session.get('division_id')) %}selected{% endif %}>{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-4">
+            <label>Total Budget (₹)</label>
+            <input class="form-control" name="budget" type="number" step="0.01" placeholder="500000">
+          </div>
+          <div class="col-md-4">
+            <label>Initial Status</label>
+            <select class="form-select" name="status">
+              <option>Planning</option>
+              <option>Active</option>
+              <option>On Hold</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label>Start Date</label>
+            <input class="form-control" type="date" name="start_date">
+          </div>
+
+          <div class="col-md-4">
+            <label>Expected Completion</label>
+            <input class="form-control" type="date" name="expected_end_date">
+          </div>
+          <div class="col-md-8">
+            <label>Site Address</label>
+            <input class="form-control" name="site_address" placeholder="Physical location / site premises">
+          </div>
+
+          <div class="col-12">
+            <label>Scope Description</label>
+            <textarea class="form-control" name="description" rows="2" placeholder="Details of the project deliverables..."></textarea>
+          </div>
+
+          <div class="col-12 text-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary px-4">Create Project</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+{% block title %}Settings & Access Control - Business ERP{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Administration & Security</p>
+    <h1>Settings & Access Control</h1>
+    <p>Configure business workspaces, user authentication, security credentials, and granular role permissions.</p>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- ADD WORKSPACE -->
+  <div class="col-lg-5">
+    <div class="panel h-100">
+      <h5 class="mb-1">Add Business Workspace</h5>
+      <p class="text-muted small mb-3">Create independent divisions (e.g. Civil Engineering, Furniture Production).</p>
+      <form method="post" class="row g-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="division">
+        <div class="col-8">
+          <input class="form-control" name="name" placeholder="Workspace name" required>
+        </div>
+        <div class="col-4">
+          <input class="form-control text-uppercase" name="code" placeholder="CODE" required>
+        </div>
+        <div class="col-12 mt-3">
+          <button class="btn btn-primary w-100">Create Workspace</button>
+        </div>
+      </form>
+      <hr>
+      <small class="text-muted d-block">
+        <strong>Active Workspaces:</strong> 
+        {% for d in divisions %}{{ d.name }} ({{ d.code }}){{ ', ' if not loop.last }}{% endfor %}
+      </small>
+    </div>
+  </div>
+
+  <!-- CREATE USER ACCOUNT -->
+  <div class="col-lg-7">
+    <div class="panel h-100">
+      <h5 class="mb-1">Create User Login Account</h5>
+      <p class="text-muted small mb-3">Manually provision login access or link an existing staff member.</p>
+      <form method="post" class="row g-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="action" value="user">
+
+        <div class="col-md-4">
+          <label>Username *</label>
+          <input class="form-control" name="username" placeholder="Username" required>
+        </div>
+        <div class="col-md-4">
+          <label>Email Address</label>
+          <input class="form-control" type="email" name="email" placeholder="email@example.com">
+        </div>
+        <div class="col-md-4">
+          <label>Password *</label>
+          <input class="form-control" type="password" name="password" placeholder="Temporary password" required>
+        </div>
+
+        <div class="col-md-4">
+          <label>Role *</label>
+          <select class="form-select" name="role_id">
+            {% for r in roles %}
+              <option value="{{ r.id }}" {% if r.name == 'employee' %}selected{% endif %}>{{ r.name|title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label>Workspace Assignment</label>
+          <select class="form-select" name="division_id">
+            <option value="">All Workspaces (Owner / Admin)</option>
+            {% for d in divisions %}
+              <option value="{{ d.id }}">{{ d.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label>Link to Employee Profile</label>
+          <select class="form-select" name="employee_id">
+            <option value="">Not linked to employee</option>
+            {% for e in employees %}
+              <option value="{{ e.id }}">{{ e.full_name }} ({{ e.employee_code }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-12 mt-3 text-end">
+          <button class="btn btn-primary px-4">Create User Account</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- APPEARANCE / THEME -->
+<div class="panel mb-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <h5 class="mb-1">Appearance & Workspace Theme</h5>
+      <p class="text-muted small mb-0">Select the visual branding accent for the ERP suite.</p>
+    </div>
+    <form method="post" class="d-flex gap-2 align-items-center">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="theme">
+      <select class="form-select w-auto" name="ui_theme">
+        <option value="violet" {% if theme == 'violet' %}selected{% endif %}>Violet Executive (Default)</option>
+        <option value="ocean" {% if theme == 'ocean' %}selected{% endif %}>Ocean Blue Professional</option>
+        <option value="forest" {% if theme == 'forest' %}selected{% endif %}>Forest Green Corporate</option>
+      </select>
+      <button class="btn btn-primary btn-sm">Apply Theme</button>
+    </form>
+  </div>
+</div>
+
+<!-- USERS LIST TABLE WITH 3-DOT MENU -->
+<div class="panel mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5>Registered User Accounts</h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table align-middle" id="usersTable">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Role</th>
+          <th>Workspace Division</th>
+          <th>Linked Staff Member</th>
+          <th>Status</th>
+          <th class="text-end no-export" style="width: 80px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>
+            <strong>{{ u.username }}</strong>
+            <small class="text-muted">{{ u.email or 'No email' }}</small>
+          </td>
+          <td><span class="badge-soft badge-soft-primary">{{ u.role|title }}</span></td>
+          <td>{{ u.division_name or 'All Workspaces (Global)' }}</td>
+          <td>{{ u.employee_name or '—' }}</td>
+          <td>
+            <span class="badge-soft {{ 'badge-soft-success' if u.active else 'badge-soft-danger' }}">
+              {{ 'Active' if u.active else 'Disabled' }}
+            </span>
+          </td>
+          <td class="text-end no-export">
+            <!-- 3-DOT ACTION MENU -->
+            <div class="dropdown">
+              <button class="action-dots-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
+                ⋮
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editUserModal{{ u.id }}">
+                    <span>✎</span> Edit / Reset Password
+                  </a>
+                </li>
+                <li>
+                  <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="user_status">
+                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                    <input type="hidden" name="active" value="{{ 0 if u.active else 1 }}">
+                    <button type="submit" class="dropdown-item {{ 'text-warning' if u.active else 'text-success' }}">
+                      <span>🔄</span> {{ 'Disable Account' if u.active else 'Enable Account' }}
+                    </button>
+                  </form>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="post" onsubmit="return confirm('Permanently delete account {{ u.username }}?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="delete_user">
+                    <input type="hidden" name="user_id" value="{{ u.id }}">
+                    <button type="submit" class="dropdown-item text-danger">
+                      <span>🗑</span> Delete User
+                    </button>
+                  </form>
+                </li>
+              </ul>
+            </div>
+          </td>
+        </tr>
+
+        <!-- EDIT USER MODAL -->
+        <div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <p class="eyebrow mb-0">Security & Credentials</p>
+                  <h5 class="modal-title">Edit User: {{ u.username }}</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <form method="post">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="action" value="edit_user">
+                  <input type="hidden" name="user_id" value="{{ u.id }}">
+
+                  <div class="mb-3">
+                    <label>Username *</label>
+                    <input class="form-control" name="username" value="{{ u.username }}" required>
+                  </div>
+                  <div class="mb-3">
+                    <label>Email Address</label>
+                    <input class="form-control" type="email" name="email" value="{{ u.email or '' }}">
+                  </div>
+                  <div class="mb-3">
+                    <label>New Password (leave blank to keep unchanged)</label>
+                    <input class="form-control" type="password" name="new_password" placeholder="Enter new password to reset">
+                  </div>
+                  <div class="mb-3">
+                    <label>Assigned Role</label>
+                    <select class="form-select" name="role_id">
+                      {% for r in roles %}
+                        <option value="{{ r.id }}" {% if r.id == u.role_id %}selected{% endif %}>{{ r.name|title }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label>Workspace Assignment</label>
+                    <select class="form-select" name="division_id">
+                      <option value="">All Workspaces</option>
+                      {% for d in divisions %}
+                        <option value="{{ d.id }}" {% if d.id == u.division_id %}selected{% endif %}>{{ d.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <div class="text-end">
+                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save User Changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ROLE PERMISSIONS MATRIX -->
+<div class="panel">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h5 class="mb-1">Role Permission Matrix</h5>
+      <small class="text-muted">Control module navigation visibility and write/manage permissions per role.</small>
+    </div>
+  </div>
+
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="action" value="permissions">
+
+    <div class="table-responsive">
+      <table class="table align-middle text-center">
+        <thead>
+          <tr>
+            <th class="text-start">Module</th>
+            {% for r in roles %}
+              <th colspan="2" class="border-start">{{ r.name|title }}</th>
+            {% endfor %}
+          </tr>
+          <tr>
+            <th></th>
+            {% for r in roles %}
+              <th class="border-start small text-muted">View</th>
+              <th class="small text-muted">Manage</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for module in modules %}
+          <tr>
+            <td class="text-start fw-semibold">{{ module|title }}</td>
+            {% for r in roles %}
+              {% set p = permissions.get((r.id, module)) %}
+              <td class="border-start">
+                <input class="form-check-input" type="checkbox" name="view_{{ r.id }}_{{ module }}" {% if p and p.can_view %}checked{% endif %}>
+              </td>
+              <td>
+                <input class="form-check-input" type="checkbox" name="manage_{{ r.id }}_{{ module }}" {% if p and p.can_manage %}checked{% endif %}>
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="text-end mt-3">
+      <button type="submit" class="btn btn-primary px-4">Save Role Permissions</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

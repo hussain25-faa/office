@@ -1,0 +1,546 @@
+{% extends "base.html" %}
+{% block title %}Employees - Business ERP{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">People & Workforce Directory</p>
+    <h1>Employees</h1>
+    <p>Manage staff profiles, identity records, payroll structures, and automated user access.</p>
+  </div>
+  {% if can_manage %}
+  <button class="btn btn-primary d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#employeeModal">
+    <span>+</span> Add Employee & Create Login
+  </button>
+  {% endif %}
+</div>
+
+<!-- EMPLOYEES TABLE -->
+<div class="panel">
+  <div class="table-responsive">
+    <table class="table align-middle" id="employeesTable">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Workspace</th>
+          <th>Contact & Email</th>
+          <th>Designation & Dept</th>
+          <th>User Login Account</th>
+          <th>Identity & Bank</th>
+          <th>Status</th>
+          <th class="text-end no-export" style="width: 80px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in employees %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div style="width:36px; height:36px; border-radius:50%; background:#eef2ff; color:var(--accent); font-weight:700; display:grid; place-items:center;">
+                {{ e.full_name[0]|upper }}
+              </div>
+              <div>
+                <strong>{{ e.full_name }}</strong>
+                <small class="text-muted">{{ e.employee_code }}</small>
+              </div>
+            </div>
+          </td>
+          <td>{{ e.division_name }}</td>
+          <td>
+            <div>{{ e.phone or '—' }}</div>
+            <small class="text-muted">{{ e.email or 'No email' }}</small>
+          </td>
+          <td>
+            <div>{{ e.designation or '—' }}</div>
+            <small class="text-muted">{{ e.department or 'General' }}</small>
+          </td>
+          <td>
+            {% if e.user_username %}
+              <div class="d-flex align-items-center gap-1">
+                <span class="badge-soft badge-soft-primary">
+                  👤 {{ e.user_username }}
+                </span>
+                {% if e.user_active %}
+                  <span class="badge-soft badge-soft-success py-0 px-1" style="font-size:0.65rem;">Active</span>
+                {% else %}
+                  <span class="badge-soft badge-soft-danger py-0 px-1" style="font-size:0.65rem;">Disabled</span>
+                {% endif %}
+              </div>
+            {% else %}
+              <span class="text-muted small">No login created</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="small">
+              Aadhaar: {{ ('•••• •••• ' ~ e.aadhaar_number[-4:]) if e.aadhaar_number else '—' }}
+            </div>
+            <small class="text-muted">
+              {{ e.bank_name or 'No Bank' }} {{ ('(' ~ e.bank_account[-4:] ~ ')') if e.bank_account else '' }}
+            </small>
+          </td>
+          <td>
+            <span class="badge-soft {{ 'badge-soft-success' if e.active else 'badge-soft-secondary' }}">
+              {{ 'Active' if e.active else 'Inactive' }}
+            </span>
+          </td>
+          <td class="text-end no-export">
+            <!-- 3-DOT ACTION MENU -->
+            <div class="dropdown">
+              <button class="action-dots-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Actions">
+                ⋮
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#viewEmpModal{{ e.id }}">
+                    <span>👁</span> View Profile
+                  </a>
+                </li>
+                {% if can_manage %}
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editEmpModal{{ e.id }}">
+                    <span>✎</span> Edit Employee
+                  </a>
+                </li>
+                {% if not e.user_username %}
+                <li>
+                  <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#createUserModal{{ e.id }}">
+                    <span>🔑</span> Create User Login
+                  </a>
+                </li>
+                {% endif %}
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <form method="post" action="{{ url_for('employee.delete', employee_id=e.id) }}" onsubmit="return confirm('Are you sure you want to remove/deactivate {{ e.full_name }}?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="dropdown-item text-danger">
+                      <span>🗑</span> Delete / Deactivate
+                    </button>
+                  </form>
+                </li>
+                {% endif %}
+              </ul>
+            </div>
+          </td>
+        </tr>
+
+        <!-- VIEW EMPLOYEE MODAL -->
+        <div class="modal fade" id="viewEmpModal{{ e.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <p class="eyebrow mb-0">Employee Profile</p>
+                  <h5 class="modal-title">{{ e.full_name }} ({{ e.employee_code }})</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="text-muted small">Workspace</label>
+                    <div class="fw-bold">{{ e.division_name }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Designation</label>
+                    <div class="fw-bold">{{ e.designation or 'Not assigned' }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Department</label>
+                    <div class="fw-bold">{{ e.department or 'General' }}</div>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="text-muted small">Phone</label>
+                    <div>{{ e.phone or '—' }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Email</label>
+                    <div>{{ e.email or '—' }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Emergency Contact</label>
+                    <div>{{ e.emergency_contact or '—' }}</div>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="text-muted small">Aadhaar Number</label>
+                    <div>{{ e.aadhaar_number or '—' }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Date of Birth</label>
+                    <div>{{ e.date_of_birth or '—' }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Joining Date</label>
+                    <div>{{ e.joining_date or '—' }}</div>
+                  </div>
+
+                  <div class="col-md-4">
+                    <label class="text-muted small">Employment Type</label>
+                    <div>{{ e.employee_type }}</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Salary Model</label>
+                    <div>{{ e.salary_type }} (₹{{ "{:,.2f}".format(e.monthly_salary) if e.salary_type == 'Monthly' else "{:,.2f}".format(e.daily_wage) ~ '/day' }})</div>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="text-muted small">Bank & IFSC</label>
+                    <div>{{ e.bank_name or '—' }} {{ ('- ' ~ e.ifsc_code) if e.ifsc_code else '' }}</div>
+                  </div>
+
+                  <div class="col-12">
+                    <label class="text-muted small">Residential Address</label>
+                    <div>{{ e.address or '—' }}</div>
+                  </div>
+
+                  <div class="col-12 border-top pt-3">
+                    <div class="p-3 bg-light rounded-3">
+                      <h6 class="mb-2">User Login Status</h6>
+                      {% if e.user_username %}
+                        <div class="d-flex align-items-center gap-2">
+                          <span class="badge-soft badge-soft-success">Linked Account Active</span>
+                          <span>Username: <strong>{{ e.user_username }}</strong></span>
+                          <span>Role: <strong>{{ e.user_role|title }}</strong></span>
+                        </div>
+                      {% else %}
+                        <p class="text-muted small mb-0">No login account is linked to this employee. You can create one from the 3-dot action menu.</p>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% if can_manage %}
+        <!-- EDIT EMPLOYEE MODAL -->
+        <div class="modal fade" id="editEmpModal{{ e.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <p class="eyebrow mb-0">Edit Details</p>
+                  <h5 class="modal-title">Edit {{ e.full_name }}</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <form method="post" action="{{ url_for('employee.edit', employee_id=e.id) }}" class="row g-3">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  
+                  <div class="col-md-3">
+                    <label>Employee code *</label>
+                    <input class="form-control" name="employee_code" value="{{ e.employee_code }}" required>
+                  </div>
+                  <div class="col-md-5">
+                    <label>Full name *</label>
+                    <input class="form-control" name="full_name" value="{{ e.full_name }}" required>
+                  </div>
+                  <div class="col-md-4">
+                    <label>Workspace *</label>
+                    <select class="form-select" name="division_id" required>
+                      {% for d in divisions %}
+                        <option value="{{ d.id }}" {% if d.id == e.division_id %}selected{% endif %}>{{ d.name }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <div class="col-md-3">
+                    <label>Mobile phone</label>
+                    <input class="form-control" name="phone" value="{{ e.phone or '' }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Email address</label>
+                    <input class="form-control" type="email" name="email" value="{{ e.email or '' }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Aadhaar number</label>
+                    <input class="form-control" name="aadhaar_number" maxlength="12" value="{{ e.aadhaar_number or '' }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Date of birth</label>
+                    <input class="form-control" type="date" name="date_of_birth" value="{{ e.date_of_birth or '' }}">
+                  </div>
+
+                  <div class="col-md-3">
+                    <label>Designation</label>
+                    <input class="form-control" name="designation" value="{{ e.designation or '' }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Department</label>
+                    <input class="form-control" name="department" value="{{ e.department or '' }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Joining date</label>
+                    <input class="form-control" type="date" name="joining_date" value="{{ e.joining_date or '' }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Emergency contact</label>
+                    <input class="form-control" name="emergency_contact" value="{{ e.emergency_contact or '' }}">
+                  </div>
+
+                  <div class="col-md-3">
+                    <label>Employment type</label>
+                    <select class="form-select" name="employee_type">
+                      {% for t in ['Permanent', 'Contract', 'Daily wage'] %}
+                        <option {% if e.employee_type == t %}selected{% endif %}>{{ t }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label>Salary type</label>
+                    <select class="form-select" name="salary_type">
+                      <option {% if e.salary_type == 'Monthly' %}selected{% endif %}>Monthly</option>
+                      <option {% if e.salary_type == 'Daily' %}selected{% endif %}>Daily</option>
+                    </select>
+                  </div>
+                  <div class="col-md-3">
+                    <label>Monthly salary (₹)</label>
+                    <input class="form-control" name="monthly_salary" type="number" step="0.01" value="{{ e.monthly_salary }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Daily wage (₹)</label>
+                    <input class="form-control" name="daily_wage" type="number" step="0.01" value="{{ e.daily_wage }}">
+                  </div>
+
+                  <div class="col-md-4">
+                    <label>Bank name</label>
+                    <input class="form-control" name="bank_name" value="{{ e.bank_name or '' }}">
+                  </div>
+                  <div class="col-md-4">
+                    <label>Bank account no.</label>
+                    <input class="form-control" name="bank_account" value="{{ e.bank_account or '' }}">
+                  </div>
+                  <div class="col-md-4">
+                    <label>IFSC code</label>
+                    <input class="form-control" name="ifsc_code" value="{{ e.ifsc_code or '' }}">
+                  </div>
+
+                  <div class="col-md-9">
+                    <label>Address</label>
+                    <input class="form-control" name="address" value="{{ e.address or '' }}">
+                  </div>
+                  <div class="col-md-3">
+                    <label>Status</label>
+                    <select class="form-select" name="active">
+                      <option value="1" {% if e.active %}selected{% endif %}>Active</option>
+                      <option value="0" {% if not e.active %}selected{% endif %}>Inactive</option>
+                    </select>
+                  </div>
+
+                  <div class="col-12 mt-4 text-end">
+                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CREATE USER LOGIN MODAL FOR EXISTING EMPLOYEE -->
+        {% if not e.user_username %}
+        <div class="modal fade" id="createUserModal{{ e.id }}" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <div>
+                  <p class="eyebrow mb-0">System Access</p>
+                  <h5 class="modal-title">Create Login for {{ e.full_name }}</h5>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <form method="post" action="{{ url_for('employee.create_account', employee_id=e.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <div class="mb-3">
+                    <label>Username</label>
+                    <input class="form-control" name="username" value="{{ e.full_name.lower().replace(' ', '.') }}" required>
+                  </div>
+                  <div class="mb-3">
+                    <label>Temporary Password</label>
+                    <input class="form-control" name="password" value="{{ e.employee_code }}@123" required>
+                  </div>
+                  <div class="mb-3">
+                    <label>Role</label>
+                    <select class="form-select" name="role_id">
+                      {% for r in roles %}
+                        <option value="{{ r.id }}" {% if r.name == 'employee' %}selected{% endif %}>{{ r.name|title }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div class="text-end">
+                    <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Account</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% endif %}
+
+        {% else %}
+        <tr>
+          <td colspan="8" class="text-center text-muted py-5">
+            No employees registered yet. Click "+ Add Employee & Create Login" to begin.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if can_manage %}
+<!-- ADD EMPLOYEE & AUTO-CREATE USER MODAL -->
+<div class="modal fade" id="employeeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow mb-1">Onboarding Team</p>
+          <h5 class="modal-title">Add Employee & Create User Account</h5>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="post" class="row g-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- PERSONAL INFO -->
+          <div class="col-md-3">
+            <label>Employee code *</label>
+            <input class="form-control" name="employee_code" placeholder="EMP-001" required>
+          </div>
+          <div class="col-md-5">
+            <label>Full name *</label>
+            <input class="form-control" name="full_name" placeholder="John Doe" id="addEmpFullName" required>
+          </div>
+          <div class="col-md-4">
+            <label>Workspace *</label>
+            <select class="form-select" name="division_id" required>
+              {% for d in divisions %}
+                <option value="{{ d.id }}" {% if d.id == active_division %}selected{% endif %}>{{ d.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label>Mobile</label>
+            <input class="form-control" name="phone" placeholder="+91 9876543210">
+          </div>
+          <div class="col-md-3">
+            <label>Email address</label>
+            <input class="form-control" type="email" name="email" placeholder="john@example.com">
+          </div>
+          <div class="col-md-3">
+            <label>Aadhaar number</label>
+            <input class="form-control" name="aadhaar_number" maxlength="12" placeholder="12-digit number">
+          </div>
+          <div class="col-md-3">
+            <label>Date of birth</label>
+            <input class="form-control" type="date" name="date_of_birth">
+          </div>
+
+          <div class="col-md-3">
+            <label>Designation</label>
+            <input class="form-control" name="designation" placeholder="e.g. Lead Carpenter / Site Engineer">
+          </div>
+          <div class="col-md-3">
+            <label>Department</label>
+            <input class="form-control" name="department" placeholder="e.g. Production / Civil">
+          </div>
+          <div class="col-md-3">
+            <label>Joining date</label>
+            <input class="form-control" type="date" name="joining_date">
+          </div>
+          <div class="col-md-3">
+            <label>Emergency contact</label>
+            <input class="form-control" name="emergency_contact" placeholder="Relation & number">
+          </div>
+
+          <div class="col-md-3">
+            <label>Employment type</label>
+            <select class="form-select" name="employee_type">
+              <option>Permanent</option>
+              <option>Contract</option>
+              <option>Daily wage</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label>Salary type</label>
+            <select class="form-select" name="salary_type">
+              <option>Monthly</option>
+              <option>Daily</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label>Monthly salary (₹)</label>
+            <input class="form-control" name="monthly_salary" type="number" step="0.01" value="0">
+          </div>
+          <div class="col-md-3">
+            <label>Daily wage (₹)</label>
+            <input class="form-control" name="daily_wage" type="number" step="0.01" value="0">
+          </div>
+
+          <div class="col-md-6">
+            <label>Address</label>
+            <input class="form-control" name="address" placeholder="Full residential address">
+          </div>
+          <div class="col-md-2">
+            <label>Bank name</label>
+            <input class="form-control" name="bank_name" placeholder="SBI / HDFC">
+          </div>
+          <div class="col-md-2">
+            <label>Account no.</label>
+            <input class="form-control" name="bank_account">
+          </div>
+          <div class="col-md-2">
+            <label>IFSC code</label>
+            <input class="form-control" name="ifsc_code">
+          </div>
+
+          <!-- AUTO-CREATE USER ACCOUNT SECTION -->
+          <div class="col-12 mt-4">
+            <div class="p-3 bg-light rounded-3 border">
+              <div class="form-check form-switch mb-2">
+                <input class="form-check-input" type="checkbox" id="autoUserSwitch" name="auto_create_user" value="1" checked onchange="document.getElementById('userFields').style.display = this.checked ? 'flex' : 'none'">
+                <label class="form-check-label fw-bold text-dark" for="autoUserSwitch">
+                  Automatically create User Login Account in their name
+                </label>
+              </div>
+              <small class="text-muted d-block mb-3">
+                When enabled, the employee will automatically receive a user account with login privileges.
+              </small>
+
+              <div class="row g-2" id="userFields">
+                <div class="col-md-6">
+                  <label>Login Username (leave blank to auto-generate from employee name)</label>
+                  <input class="form-control" name="login_username" placeholder="e.g. rahul.sharma">
+                </div>
+                <div class="col-md-6">
+                  <label>Login Password (default: &lt;employee_code&gt;@123)</label>
+                  <input class="form-control" name="login_password" placeholder="Leave blank for code@123">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 mt-4 text-end">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary px-4">Save Employee & Create Account</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
